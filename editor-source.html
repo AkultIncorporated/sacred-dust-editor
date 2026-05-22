@@ -1,0 +1,1056 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NousResearch CRT Editor</title>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.181.1/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.181.1/examples/jsm/"
+  }
+}
+</script>
+<style>
+:root {
+  --bg: #0a0a0a;
+  --panel: #141414;
+  --panel-2: #191919;
+  --line: #2a2a2a;
+  --text: #e0e0e0;
+  --muted: #898989;
+  --accent: #d5b26f;
+  --accent-dark: #6f5728;
+  --danger: #c65f5f;
+}
+
+* { box-sizing: border-box; }
+
+html,
+body {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--text);
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+button,
+select,
+input {
+  font: inherit;
+}
+
+.app {
+  display: grid;
+  grid-template-columns: 320px minmax(0, 1fr);
+  grid-template-rows: 56px minmax(0, 1fr);
+  width: 100vw;
+  height: 100vh;
+}
+
+.topbar {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--line);
+  background: #101010;
+  min-width: 0;
+}
+
+.brand {
+  flex: 0 0 auto;
+  margin-right: 10px;
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.toolbar-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.spacer { flex: 1; }
+
+button,
+select {
+  height: 34px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel-2);
+  color: var(--text);
+  padding: 0 11px;
+  cursor: pointer;
+}
+
+button:hover,
+select:hover {
+  border-color: var(--accent-dark);
+}
+
+button.primary {
+  border-color: var(--accent-dark);
+  background: #2b2416;
+  color: var(--accent);
+}
+
+button.danger {
+  color: var(--danger);
+}
+
+select {
+  min-width: 150px;
+  color: var(--text);
+}
+
+.sidebar {
+  grid-column: 1;
+  grid-row: 2;
+  overflow: auto;
+  border-right: 1px solid var(--line);
+  background: var(--panel);
+  padding: 16px 14px 22px;
+}
+
+.group {
+  padding: 0 0 18px;
+  margin: 0 0 18px;
+  border-bottom: 1px solid var(--line);
+}
+
+.group:last-child {
+  border-bottom: 0;
+  margin-bottom: 0;
+}
+
+.group h2 {
+  margin: 0 0 12px;
+  color: var(--accent);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.control {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 74px;
+  gap: 8px 10px;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.control label {
+  min-width: 0;
+  color: var(--text);
+  font-size: 13px;
+}
+
+.value {
+  color: var(--muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  font-size: 12px;
+  text-align: right;
+}
+
+.control input[type="range"] {
+  grid-column: 1 / -1;
+  width: 100%;
+  accent-color: var(--accent);
+}
+
+.control input[type="color"] {
+  grid-column: 1 / -1;
+  width: 100%;
+  height: 34px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #0f0f0f;
+  cursor: pointer;
+}
+
+.stage-wrap {
+  grid-column: 2;
+  grid-row: 2;
+  display: grid;
+  place-items: center;
+  min-width: 0;
+  min-height: 0;
+  padding: 16px;
+  background: radial-gradient(circle at 50% 45%, #111 0%, var(--bg) 64%);
+}
+
+.stage {
+  position: relative;
+  width: min(1080px, calc(100vw - 352px), calc(100vh - 88px));
+  height: min(1080px, calc(100vw - 352px), calc(100vh - 88px));
+  aspect-ratio: 1;
+  box-shadow: 0 0 0 1px #1e1e1e, 0 26px 80px rgba(0, 0, 0, 0.48);
+  background: var(--bg);
+}
+
+#three-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.fps {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  padding: 4px 7px;
+  border: 1px solid rgba(213, 178, 111, 0.32);
+  border-radius: 5px;
+  background: rgba(10, 10, 10, 0.72);
+  color: var(--accent);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  font-size: 12px;
+}
+
+.status {
+  position: absolute;
+  left: 10px;
+  bottom: 10px;
+  max-width: calc(100% - 20px);
+  padding: 7px 9px;
+  border: 1px solid rgba(213, 178, 111, 0.28);
+  border-radius: 6px;
+  background: rgba(10, 10, 10, 0.78);
+  color: var(--text);
+  font-size: 12px;
+  opacity: 0;
+  transform: translateY(5px);
+  transition: opacity 160ms ease, transform 160ms ease;
+  pointer-events: none;
+}
+
+.status.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+@media (max-width: 920px) {
+  .app {
+    grid-template-columns: 280px minmax(0, 1fr);
+  }
+
+  .stage {
+    width: min(1080px, calc(100vw - 312px), calc(100vh - 88px));
+    height: min(1080px, calc(100vw - 312px), calc(100vh - 88px));
+  }
+
+  .topbar {
+    overflow-x: auto;
+  }
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <div class="brand">Sacred Dust Editor</div>
+    <div class="toolbar-group" id="preset-buttons"></div>
+    <div class="spacer"></div>
+    <div class="toolbar-group">
+      <select id="saved-presets" aria-label="Saved presets"></select>
+      <button id="save-preset">Save Preset</button>
+      <button id="delete-preset" class="danger">Delete</button>
+      <button id="export-config" class="primary">Export Config</button>
+      <button id="queue-render" class="primary">Queue Render</button>
+    </div>
+  </header>
+
+  <aside class="sidebar" id="controls"></aside>
+
+  <main class="stage-wrap">
+    <div class="stage">
+      <canvas id="three-canvas" width="1080" height="1080"></canvas>
+      <div class="fps" id="fps">FPS --</div>
+      <div class="status" id="status">Loading SVG...</div>
+    </div>
+  </main>
+</div>
+
+<script type="module">
+import * as THREE from 'three';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+
+const WIDTH = 1080;
+const HEIGHT = 1080;
+const DURATION = 10;
+const SCALE = 3.5;
+const STORAGE_KEY = 'sacred-dust-editor-presets';
+
+const controlGroups = [
+  {
+    title: 'Dust Engine',
+    items: [
+      { key: 'uActivity', label: 'uActivity', type: 'range', min: 0, max: 1, step: 0.01, value: 0.44 },
+      { key: 'uChaos', label: 'uChaos', type: 'range', min: 0.1, max: 2, step: 0.01, value: 0.55 },
+      { key: 'uFlow', label: 'uFlow', type: 'range', min: 0, max: 3, step: 0.01, value: 0.99 },
+      { key: 'uPointSize', label: 'uPointSize', type: 'range', min: 0.5, max: 8, step: 0.1, value: 2.2 },
+      { key: 'uGlowIntensity', label: 'uGlowIntensity', type: 'range', min: 0, max: 3, step: 0.05, value: 1.1 },
+      { key: 'uRGBSplit', label: 'uRGBSplit', type: 'range', min: 0, max: 1, step: 0.01, value: 0.35 },
+      { key: 'uColor', label: 'uColor', type: 'color', value: '#d5b26f' },
+    ],
+  },
+  {
+    title: 'CRT Overlay',
+    items: [
+      { key: 'uCRTfrequency', label: 'uCRTfrequency', type: 'range', min: 10, max: 300, step: 1, value: 100 },
+      { key: 'uCRTvertical', label: 'uCRTvertical', type: 'range', min: 0.5, max: 10, step: 0.1, value: 3 },
+      { key: 'uCRTspeed', label: 'uCRTspeed', type: 'range', min: 0.5, max: 10, step: 0.1, value: 3 },
+      { key: 'uCRTspeed2', label: 'uCRTspeed2', type: 'range', min: 0.1, max: 3, step: 0.05, value: 0.5 },
+      { key: 'uCRTintensity', label: 'uCRTintensity', type: 'range', min: 0, max: 1, step: 0.01, value: 0.12 },
+      { key: 'uCRTcolor', label: 'uCRTcolor', type: 'color', value: '#dbd8f5' },
+    ],
+  },
+  {
+    title: 'Post-Processing',
+    items: [
+      { key: 'bloomStrength', label: 'bloomStrength', type: 'range', min: 0, max: 2, step: 0.05, value: 0.6 },
+      { key: 'bloomRadius', label: 'bloomRadius', type: 'range', min: 0, max: 1, step: 0.05, value: 0.5 },
+      { key: 'bloomThreshold', label: 'bloomThreshold', type: 'range', min: 0, max: 1, step: 0.05, value: 0.3 },
+    ],
+  },
+  {
+    title: 'Camera',
+    items: [
+      { key: 'cameraZ', label: 'cameraZ', type: 'range', min: 2, max: 10, step: 0.1, value: 5.2 },
+      { key: 'cameraFOV', label: 'cameraFOV', type: 'range', min: 20, max: 90, step: 1, value: 45 },
+    ],
+  },
+  {
+    title: 'Geometry',
+    items: [
+      { key: 'particleDensity', label: 'particleDensity', type: 'range', min: 0.1, max: 2, step: 0.05, value: 1 },
+      { key: 'layerCount', label: 'layerCount', type: 'range', min: 1, max: 5, step: 1, value: 3 },
+      { key: 'depthRange', label: 'depthRange', type: 'range', min: 0.05, max: 0.5, step: 0.01, value: 0.25 },
+    ],
+  },
+];
+
+const presets = {
+  'Dark Merkaba': { uActivity: 0.3, uChaos: 0.5, uGlowIntensity: 1.2, uPointSize: 3.5, uCRTintensity: 0.08 },
+  'Warm Logo': { uActivity: 0.44, uChaos: 0.55, uGlowIntensity: 1.1, uPointSize: 2.2, uCRTintensity: 0.12, uColor: '#d5b26f' },
+  'Ethereal Sphere': { uActivity: 0.22, uChaos: 0.35, uGlowIntensity: 0.45, uPointSize: 1.2, uCRTintensity: 0.05 },
+  'CRT Heavy': { uCRTintensity: 0.35, uCRTfrequency: 150, uCRTspeed: 5 },
+  'Minimal': { uGlowIntensity: 0.6, uRGBSplit: 0.1, uCRTintensity: 0, bloomStrength: 0.3 },
+};
+
+const controlsEl = document.getElementById('controls');
+const presetButtonsEl = document.getElementById('preset-buttons');
+const savedPresetsEl = document.getElementById('saved-presets');
+const fpsEl = document.getElementById('fps');
+const statusEl = document.getElementById('status');
+const values = {};
+const inputs = new Map();
+const valueEls = new Map();
+let statusTimer = null;
+let baseSvg = null;
+let logoPoints = null;
+let logoUniforms = null;
+let tl = null;
+let lastFpsStamp = performance.now();
+let fpsFrames = 0;
+let geometryTimer = null;
+
+function mulberry32(a) {
+  return function() {
+    let t = (a += 0x6d2b79f5);
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function normalizeHex(hex) {
+  if (typeof hex !== 'string') return '#ffffff';
+  return hex.startsWith('#') ? hex : `#${hex}`;
+}
+
+function showStatus(message, sticky = false) {
+  statusEl.textContent = message;
+  statusEl.classList.add('visible');
+  if (statusTimer) clearTimeout(statusTimer);
+  if (!sticky) {
+    statusTimer = setTimeout(() => statusEl.classList.remove('visible'), 2600);
+  }
+}
+
+function formatValue(key, value) {
+  if (typeof value === 'string') return value.toLowerCase();
+  if (key === 'layerCount' || key === 'cameraFOV' || key === 'uCRTfrequency') return String(Math.round(value));
+  return Number(value).toFixed(2);
+}
+
+function buildControls() {
+  controlGroups.forEach(group => {
+    const section = document.createElement('section');
+    section.className = 'group';
+    const heading = document.createElement('h2');
+    heading.textContent = group.title;
+    section.appendChild(heading);
+
+    group.items.forEach(item => {
+      values[item.key] = item.value;
+
+      const row = document.createElement('div');
+      row.className = 'control';
+      const label = document.createElement('label');
+      label.htmlFor = item.key;
+      label.textContent = item.label;
+      const valueEl = document.createElement('div');
+      valueEl.className = 'value';
+      valueEl.textContent = formatValue(item.key, item.value);
+
+      const input = document.createElement('input');
+      input.id = item.key;
+      input.type = item.type;
+      input.value = item.value;
+      if (item.type === 'range') {
+        input.min = item.min;
+        input.max = item.max;
+        input.step = item.step;
+      }
+
+      input.addEventListener('input', () => {
+        const next = item.type === 'color' ? normalizeHex(input.value) : Number(input.value);
+        setControlValue(item.key, next, true);
+      });
+
+      row.append(label, valueEl, input);
+      section.appendChild(row);
+      inputs.set(item.key, input);
+      valueEls.set(item.key, valueEl);
+    });
+
+    controlsEl.appendChild(section);
+  });
+
+  Object.keys(presets).forEach(name => {
+    const button = document.createElement('button');
+    button.textContent = name;
+    button.addEventListener('click', () => applyPreset(presets[name]));
+    presetButtonsEl.appendChild(button);
+  });
+}
+
+function setControlValue(key, value, fromInput = false) {
+  values[key] = value;
+  const input = inputs.get(key);
+  if (input && !fromInput) input.value = value;
+  const valueEl = valueEls.get(key);
+  if (valueEl) valueEl.textContent = formatValue(key, value);
+  applyLiveValues(key);
+}
+
+function applyPreset(preset) {
+  Object.entries(preset).forEach(([key, value]) => {
+    if (key in values) setControlValue(key, value);
+  });
+  showStatus('Preset applied.');
+}
+
+async function loadSVG(url) {
+  const resp = await fetch(url);
+  const text = await resp.text();
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(text, 'image/svg+xml');
+  const svg = doc.querySelector('svg');
+  const vb = svg.getAttribute('viewBox') || '0 0 100 100';
+  const [, , vw, vh] = vb.split(/\s+/).map(Number);
+  const viewSize = Math.max(vw, vh);
+  const SUPERSAMPLE = 48;
+  const res = viewSize * SUPERSAMPLE;
+  const cvs = document.createElement('canvas');
+  cvs.width = res;
+  cvs.height = res;
+  const ctx = cvs.getContext('2d');
+  ctx.fillStyle = 'white';
+  ctx.scale(SUPERSAMPLE, SUPERSAMPLE);
+
+  svg.querySelectorAll('path').forEach(path => {
+    const d = path.getAttribute('d');
+    if (!d) return;
+    try { ctx.fill(new Path2D(d)); } catch (err) {}
+  });
+
+  svg.querySelectorAll('polygon, polyline').forEach(poly => {
+    const pts = (poly.getAttribute('points') || '').trim().split(/[\s,]+/);
+    if (pts.length < 4) return;
+    ctx.beginPath();
+    ctx.moveTo(Number(pts[0]), Number(pts[1]));
+    for (let i = 2; i < pts.length; i += 2) ctx.lineTo(Number(pts[i]), Number(pts[i + 1]));
+    ctx.closePath();
+    ctx.fill();
+  });
+
+  const imageData = ctx.getImageData(0, 0, res, res);
+  const pixels = imageData.data;
+  const filled = [];
+  for (let y = 0; y < res; y++) {
+    for (let x = 0; x < res; x++) {
+      if (pixels[(y * res + x) * 4 + 3] > 128) filled.push({ x, y });
+    }
+  }
+  return { filled, res };
+}
+
+function sampleSVGParticles(svgData, density, layers, depthRange) {
+  const rand = mulberry32(42);
+  const baseCount = Math.max(1, Math.floor(svgData.filled.length * density));
+  const total = baseCount * layers;
+  const positions = new Float32Array(total * 3);
+  const normals = new Float32Array(total * 3);
+  const randoms = new Float32Array(total);
+  const maxIndex = svgData.filled.length - 1;
+  let pi = 0;
+  let ri = 0;
+
+  for (let i = 0; i < baseCount; i++) {
+    const sourceIndex = density <= 1
+      ? Math.min(maxIndex, Math.floor(i / Math.max(density, 0.0001)))
+      : i % svgData.filled.length;
+    const p = svgData.filled[sourceIndex];
+    const baseX = (p.x / svgData.res - 0.5) * SCALE;
+    const baseY = -(p.y / svgData.res - 0.5) * SCALE;
+    const nLen = Math.sqrt(baseX * baseX + baseY * baseY + 0.25) || 1;
+    const nx = baseX / nLen;
+    const ny = baseY / nLen;
+    const nz = 0.5 / nLen;
+
+    for (let layer = 0; layer < layers; layer++) {
+      const z = ((layer / (layers - 1 || 1)) - 0.5) * depthRange;
+      positions[pi] = baseX;
+      normals[pi++] = nx;
+      positions[pi] = baseY;
+      normals[pi++] = ny;
+      positions[pi] = z;
+      normals[pi++] = nz;
+      randoms[ri++] = rand();
+    }
+  }
+
+  return { positions, normals, randoms, count: total };
+}
+
+const dustVertexShader = `
+  uniform float uTime;
+  uniform float uActivity;
+  uniform float uChaos;
+  uniform float uFlow;
+  uniform float uPointSize;
+  uniform float uExplodeIntensity;
+  attribute float aRandom;
+  attribute vec3 aNormal;
+  varying float vRandom;
+  varying float vFacing;
+  varying float vDisplacement;
+
+  vec4 permute(vec4 x) { return mod(((x * 34.0) + 1.0) * x, 289.0); }
+  vec4 taylorInvSqrt(vec4 r) { return 1.79284291400159 - 0.85373472095314 * r; }
+
+  float snoise(vec3 v) {
+    const vec2 C = vec2(1.0/6.0, 1.0/3.0);
+    const vec4 D = vec4(0.0, 0.5, 1.0, 2.0);
+    vec3 i = floor(v + dot(v, C.yyy));
+    vec3 x0 = v - i + dot(i, C.xxx);
+    vec3 g = step(x0.yzx, x0.xyz);
+    vec3 l = 1.0 - g;
+    vec3 i1 = min(g.xyz, l.zxy);
+    vec3 i2 = max(g.xyz, l.zxy);
+    vec3 x1 = x0 - i1 + C.xxx;
+    vec3 x2 = x0 - i2 + 2.0 * C.xxx;
+    vec3 x3 = x0 - 1.0 + 3.0 * C.xxx;
+    i = mod(i, 289.0);
+    vec4 p = permute(permute(permute(
+              i.z + vec4(0.0, i1.z, i2.z, 1.0))
+            + i.y + vec4(0.0, i1.y, i2.y, 1.0))
+            + i.x + vec4(0.0, i1.x, i2.x, 1.0));
+    float n_ = 1.0/7.0;
+    vec3 ns = n_ * D.wyz - D.xzx;
+    vec4 j = p - 49.0 * floor(p * ns.z * ns.z);
+    vec4 x_ = floor(j * ns.z);
+    vec4 y_ = floor(j - 7.0 * x_);
+    vec4 x = x_ * ns.x + ns.yyyy;
+    vec4 y = y_ * ns.x + ns.yyyy;
+    vec4 h = 1.0 - abs(x) - abs(y);
+    vec4 b0 = vec4(x.xy, y.xy);
+    vec4 b1 = vec4(x.zw, y.zw);
+    vec4 s0 = floor(b0) * 2.0 + 1.0;
+    vec4 s1 = floor(b1) * 2.0 + 1.0;
+    vec4 sh = -step(h, vec4(0.0));
+    vec4 a0 = b0.xzyw + s0.xzyw * sh.xxyy;
+    vec4 a1 = b1.xzyw + s1.xzyw * sh.zzww;
+    vec3 p0 = vec3(a0.xy, h.x);
+    vec3 p1 = vec3(a0.zw, h.y);
+    vec3 p2 = vec3(a1.xy, h.z);
+    vec3 p3 = vec3(a1.zw, h.w);
+    vec4 norm = taylorInvSqrt(vec4(dot(p0,p0), dot(p1,p1), dot(p2,p2), dot(p3,p3)));
+    p0 *= norm.x; p1 *= norm.y; p2 *= norm.z; p3 *= norm.w;
+    vec4 m = max(0.6 - vec4(dot(x0,x0), dot(x1,x1), dot(x2,x2), dot(x3,x3)), 0.0);
+    m = m * m;
+    return 42.0 * dot(m*m, vec4(dot(p0,x0), dot(p1,x1), dot(p2,x2), dot(p3,x3)));
+  }
+
+  void main() {
+    vRandom = aRandom;
+    float phase = aRandom * 6.283;
+    float drivenTime = uTime * uFlow;
+    vec3 pos = position;
+    vec3 normal = normalize(aNormal);
+    vFacing = dot(normalize(normalMatrix * normal), vec3(0.0, 0.0, 1.0)) * 0.5 + 0.5;
+    vDisplacement = 0.0;
+
+    float noise1 = snoise(pos * uChaos + drivenTime * 0.5);
+    float noise2 = snoise(pos * (uChaos * 2.0) - drivenTime * 0.3);
+    float combinedNoise = (noise1 + noise2 * 0.5);
+    vDisplacement = pow(max(0.0, combinedNoise), 1.5) * uActivity;
+    float valley = min(0.0, combinedNoise) * uActivity * 0.5;
+    pos += normal * (vDisplacement + valley);
+
+    float flowTime = drivenTime * 3.5;
+    vec3 up = vec3(0.0, 1.0, 0.0);
+    vec3 tangent1 = cross(normal, up);
+    if (length(tangent1) < 0.001) tangent1 = cross(normal, vec3(1.0, 0.0, 0.0));
+    tangent1 = normalize(tangent1);
+    vec3 tangent2 = normalize(cross(normal, tangent1));
+    float flow1 = sin(flowTime + phase * 2.0 + pos.y * 3.0) * 0.5 + 0.5;
+    float flow2 = sin(flowTime * 2.3 + phase * 4.0 + pos.x * 5.0) * 0.5 + 0.5;
+    float flow3 = cos(flowTime * 1.7 + phase * 3.0 + pos.z * 4.0) * 0.5 + 0.5;
+    float flowMagnitude = (flow1 * 0.5 + flow2 * 0.3 + flow3 * 0.2) * 0.08;
+    float angle = flowTime * 0.5 + phase * 6.283;
+    vec3 flowDir = tangent1 * cos(angle) + tangent2 * sin(angle);
+    vec3 flowOffset = flowDir * flowMagnitude * 0.6;
+    float settle = sin(flowTime * 0.8 + phase * 5.0) * 0.6 * 0.15 * 0.08;
+    flowOffset += normal * settle;
+    pos += flowOffset;
+
+    float slowTime = drivenTime * 0.5;
+    float wavePulse = smoothstep(0.9, 1.0, sin(slowTime));
+    float activityLevel = 0.1 + wavePulse * 0.9;
+    vec3 currentBobAmount = vec3(0.005, 0.005, 0.005) * activityLevel * 0.5;
+    pos.x += sin(drivenTime * 4.0 + phase) * currentBobAmount.x;
+    pos.y += sin(drivenTime * 4.0 * 0.8 + phase + 2.094) * currentBobAmount.y;
+    pos.z += sin(drivenTime * 4.0 * 1.2 + phase + 4.189) * currentBobAmount.z;
+
+    if (uExplodeIntensity > 0.0) {
+      float explodeDir = (aRandom - 0.5) * 2.0;
+      pos.z += uExplodeIntensity * (0.5 + aRandom * 0.5) * explodeDir * 0.5;
+      pos.xy += vec2(aRandom - 0.5, aRandom - 0.5) * uExplodeIntensity * 0.3;
+    }
+
+    vec4 mvPosition = modelViewMatrix * vec4(pos, 1.0);
+    gl_Position = projectionMatrix * mvPosition;
+    float sizeBoost = 0.8 + 0.4 * vFacing + vDisplacement * 2.0 + aRandom * 0.3;
+    gl_PointSize = uPointSize * sizeBoost * (1.0 / -mvPosition.z);
+  }
+`;
+
+const dustFragmentShader = `
+  uniform vec3 uColor;
+  uniform float uRGBSplit;
+  uniform float uTime;
+  uniform float uGlowIntensity;
+  uniform vec2 uResolution;
+  uniform float uCRTfrequency;
+  uniform float uCRTvertical;
+  uniform float uCRTspeed;
+  uniform float uCRTspeed2;
+  uniform float uCRTintensity;
+  uniform vec3 uCRTcolor;
+
+  varying float vRandom;
+  varying float vFacing;
+  varying float vDisplacement;
+
+  void main() {
+    vec2 center = gl_PointCoord - 0.5;
+    float angle = uTime * 0.5 + vRandom * 3.14;
+    vec2 splitDir = vec2(cos(angle), sin(angle));
+    vec2 redCenter = center + splitDir * uRGBSplit;
+    vec2 greenCenter = center;
+    vec2 blueCenter = center - splitDir * uRGBSplit;
+    float redDist = length(redCenter);
+    float greenDist = length(greenCenter);
+    float blueDist = length(blueCenter);
+    float redAlpha = smoothstep(0.5, 0.15, redDist);
+    float greenAlpha = smoothstep(0.5, 0.15, greenDist);
+    float blueAlpha = smoothstep(0.5, 0.15, blueDist);
+    float redGlow = exp(-redDist * 6.0) * 0.5;
+    float greenGlow = exp(-greenDist * 6.0) * 0.5;
+    float blueGlow = exp(-blueDist * 6.0) * 0.5;
+    float r = (redAlpha + redGlow * 0.6) * uColor.r + redGlow * 0.15;
+    float g = (greenAlpha + greenGlow * 0.6) * uColor.g + greenGlow * 0.15;
+    float b = (blueAlpha + blueGlow * 0.6) * uColor.b + blueGlow * 0.15;
+    float maxAlpha = max(max(redAlpha, greenAlpha), blueAlpha);
+    float maxGlow = max(max(redGlow, greenGlow), blueGlow);
+    if (maxAlpha < 0.01 && maxGlow < 0.01) discard;
+    vec3 finalColor = vec3(r, g, b);
+    float finalAlpha = max(maxAlpha, maxGlow * 0.8) * uGlowIntensity;
+
+    vec2 st = gl_FragCoord.xy / uResolution;
+    float wave1 = sin(st.x * uCRTfrequency + uTime * uCRTspeed) * 0.5 + 0.5;
+    float wave2 = sin(st.y * uCRTvertical + uTime * uCRTspeed2) * 0.5 + 0.5;
+    float crtInterference = (wave1 + wave2) * 0.5;
+    vec3 crtColor = uCRTcolor * crtInterference;
+    finalColor = mix(finalColor, crtColor, crtInterference * uCRTintensity);
+    finalColor += crtColor * crtInterference * uCRTintensity * 0.3;
+
+    gl_FragColor = vec4(finalColor, min(finalAlpha, 1.0));
+  }
+`;
+
+const canvas = document.getElementById('three-canvas');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false });
+renderer.setSize(WIDTH, HEIGHT, false);
+renderer.setPixelRatio(1);
+renderer.setClearColor(new THREE.Color('#0a0a0a'), 1);
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.0;
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color('#0a0a0a');
+const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 100);
+camera.position.set(0, 0, 5.2);
+
+function makeUniforms(kind) {
+  const bg = kind === 'background';
+  return {
+    uTime: { value: 0 },
+    uActivity: { value: bg ? 0.22 : values.uActivity },
+    uChaos: { value: bg ? 0.35 : values.uChaos },
+    uFlow: { value: values.uFlow },
+    uPointSize: { value: bg ? 1.2 : values.uPointSize },
+    uExplodeIntensity: { value: 0 },
+    uColor: { value: new THREE.Color(bg ? '#8b6914' : values.uColor) },
+    uRGBSplit: { value: bg ? 0.15 : values.uRGBSplit },
+    uGlowIntensity: { value: bg ? 0.45 : values.uGlowIntensity },
+    uResolution: { value: new THREE.Vector2(WIDTH, HEIGHT) },
+    uCRTfrequency: { value: values.uCRTfrequency },
+    uCRTvertical: { value: values.uCRTvertical },
+    uCRTspeed: { value: values.uCRTspeed },
+    uCRTspeed2: { value: values.uCRTspeed2 },
+    uCRTintensity: { value: values.uCRTintensity },
+    uCRTcolor: { value: new THREE.Color(values.uCRTcolor) },
+  };
+}
+
+function generateSpherePoints(count, radius) {
+  const rand = mulberry32(42);
+  const positions = new Float32Array(count * 3);
+  const normals = new Float32Array(count * 3);
+  const randoms = new Float32Array(count);
+  const goldenRatio = (1 + Math.sqrt(5)) / 2;
+  for (let i = 0; i < count; i++) {
+    const theta = (2 * Math.PI * i) / goldenRatio;
+    const phi = Math.acos(1 - (2 * (i + 0.5)) / count);
+    const x = radius * Math.sin(phi) * Math.cos(theta);
+    const y = radius * Math.sin(phi) * Math.sin(theta);
+    const z = radius * Math.cos(phi);
+    const idx = i * 3;
+    const len = Math.sqrt(x * x + y * y + z * z) || 1;
+    positions[idx] = x;
+    positions[idx + 1] = y;
+    positions[idx + 2] = z;
+    normals[idx] = x / len;
+    normals[idx + 1] = y / len;
+    normals[idx + 2] = z / len;
+    randoms[i] = rand();
+  }
+  return { positions, normals, randoms };
+}
+
+function makeGeometry(data) {
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(data.positions, 3));
+  geo.setAttribute('aNormal', new THREE.BufferAttribute(data.normals, 3));
+  geo.setAttribute('aRandom', new THREE.BufferAttribute(data.randoms, 1));
+  return geo;
+}
+
+const bgData = generateSpherePoints(15000, 2.5);
+const bgUniforms = makeUniforms('background');
+const bgMaterial = new THREE.ShaderMaterial({
+  vertexShader: dustVertexShader,
+  fragmentShader: dustFragmentShader,
+  uniforms: bgUniforms,
+  transparent: true,
+  depthWrite: false,
+  blending: THREE.AdditiveBlending,
+});
+const bgPoints = new THREE.Points(makeGeometry(bgData), bgMaterial);
+scene.add(bgPoints);
+
+const composer = new EffectComposer(renderer);
+composer.setSize(WIDTH, HEIGHT);
+composer.addPass(new RenderPass(scene, camera));
+const bloomPass = new UnrealBloomPass(new THREE.Vector2(WIDTH, HEIGHT), values.bloomStrength, values.bloomRadius, values.bloomThreshold);
+composer.addPass(bloomPass);
+
+function applyLiveValues(changedKey) {
+  if (logoUniforms) {
+    logoUniforms.uActivity.value = values.uActivity;
+    logoUniforms.uChaos.value = values.uChaos;
+    logoUniforms.uFlow.value = values.uFlow;
+    logoUniforms.uPointSize.value = values.uPointSize;
+    logoUniforms.uGlowIntensity.value = values.uGlowIntensity;
+    logoUniforms.uRGBSplit.value = values.uRGBSplit;
+    logoUniforms.uColor.value.set(values.uColor);
+    logoUniforms.uCRTfrequency.value = values.uCRTfrequency;
+    logoUniforms.uCRTvertical.value = values.uCRTvertical;
+    logoUniforms.uCRTspeed.value = values.uCRTspeed;
+    logoUniforms.uCRTspeed2.value = values.uCRTspeed2;
+    logoUniforms.uCRTintensity.value = values.uCRTintensity;
+    logoUniforms.uCRTcolor.value.set(values.uCRTcolor);
+  }
+
+  bgUniforms.uFlow.value = values.uFlow;
+  bgUniforms.uCRTfrequency.value = values.uCRTfrequency;
+  bgUniforms.uCRTvertical.value = values.uCRTvertical;
+  bgUniforms.uCRTspeed.value = values.uCRTspeed;
+  bgUniforms.uCRTspeed2.value = values.uCRTspeed2;
+  bgUniforms.uCRTintensity.value = values.uCRTintensity;
+  bgUniforms.uCRTcolor.value.set(values.uCRTcolor);
+
+  bloomPass.strength = values.bloomStrength;
+  bloomPass.radius = values.bloomRadius;
+  bloomPass.threshold = values.bloomThreshold;
+  camera.position.z = values.cameraZ;
+  camera.fov = values.cameraFOV;
+  camera.updateProjectionMatrix();
+
+  if (['particleDensity', 'layerCount', 'depthRange'].includes(changedKey)) {
+    scheduleGeometryRebuild();
+  }
+}
+
+function scheduleGeometryRebuild() {
+  if (!baseSvg || !logoPoints) return;
+  if (geometryTimer) clearTimeout(geometryTimer);
+  geometryTimer = setTimeout(() => rebuildLogoGeometry(), 140);
+}
+
+function rebuildLogoGeometry() {
+  if (!baseSvg || !logoPoints) return;
+  const density = Number(values.particleDensity);
+  const layers = Math.round(Number(values.layerCount));
+  const depthRange = Number(values.depthRange);
+  showStatus('Rebuilding particle geometry...', true);
+  const data = sampleSVGParticles(baseSvg, density, layers, depthRange);
+  const oldGeo = logoPoints.geometry;
+  logoPoints.geometry = makeGeometry(data);
+  oldGeo.dispose();
+  showStatus(`${data.count.toLocaleString()} logo particles`);
+}
+
+function renderFrame() {
+  const t = tl ? tl.progress() * DURATION : 0;
+  if (logoUniforms) logoUniforms.uTime.value = t;
+  bgUniforms.uTime.value = t;
+  composer.render();
+
+  fpsFrames += 1;
+  const now = performance.now();
+  if (now - lastFpsStamp >= 500) {
+    const fps = Math.round((fpsFrames * 1000) / (now - lastFpsStamp));
+    fpsEl.textContent = `FPS ${fps}`;
+    fpsFrames = 0;
+    lastFpsStamp = now;
+  }
+}
+
+function startTimeline() {
+  const playhead = { value: 0 };
+  tl = gsap.timeline({ repeat: -1, onUpdate: renderFrame });
+  tl.to(playhead, { value: 1, duration: DURATION, ease: 'none' }, 0);
+  tl.to(bgPoints.rotation, { y: -Math.PI * 0.1, duration: DURATION, ease: 'none' }, 0);
+  window.__timelines = window.__timelines || {};
+  window.__timelines['nousresearch-crt-editor'] = tl;
+}
+
+function currentConfig() {
+  return {
+    timestamp: new Date().toISOString(),
+    composition: 'nousresearch_crt',
+    duration: 10,
+    fps: 30,
+    quality: 'high',
+    dust: {
+      activity: values.uActivity,
+      chaos: values.uChaos,
+      flow: values.uFlow,
+      pointSize: values.uPointSize,
+      glowIntensity: values.uGlowIntensity,
+      rgbSplit: values.uRGBSplit,
+      color: values.uColor,
+    },
+    crt: {
+      frequency: values.uCRTfrequency,
+      vertical: values.uCRTvertical,
+      speed: values.uCRTspeed,
+      speed2: values.uCRTspeed2,
+      intensity: values.uCRTintensity,
+      color: values.uCRTcolor,
+    },
+    bloom: {
+      strength: values.bloomStrength,
+      radius: values.bloomRadius,
+      threshold: values.bloomThreshold,
+    },
+    camera: {
+      z: values.cameraZ,
+      fov: values.cameraFOV,
+    },
+    geometry: {
+      density: values.particleDensity,
+      layers: Math.round(values.layerCount),
+      depthRange: values.depthRange,
+    },
+  };
+}
+
+function downloadJson(filename, data) {
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+async function queueRender() {
+  const data = currentConfig();
+  if ('showSaveFilePicker' in window) {
+    try {
+      const handle = await window.showSaveFilePicker({
+        suggestedName: 'pending.json',
+        types: [{ description: 'JSON', accept: { 'application/json': ['.json'] } }],
+      });
+      const writable = await handle.createWritable();
+      await writable.write(JSON.stringify(data, null, 2));
+      await writable.close();
+      showStatus('Render queued: pending.json written.');
+      return;
+    } catch (err) {
+      if (err.name === 'AbortError') return;
+    }
+  }
+  downloadJson('pending.json', data);
+  showStatus('Render queue JSON exported as pending.json.');
+}
+
+function getStoredPresets() {
+  try {
+    return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+  } catch (err) {
+    return {};
+  }
+}
+
+function setStoredPresets(data) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+}
+
+function refreshSavedPresets() {
+  const data = getStoredPresets();
+  savedPresetsEl.innerHTML = '';
+  const empty = document.createElement('option');
+  empty.value = '';
+  empty.textContent = 'Saved presets';
+  savedPresetsEl.appendChild(empty);
+  Object.keys(data).sort().forEach(name => {
+    const option = document.createElement('option');
+    option.value = name;
+    option.textContent = name;
+    savedPresetsEl.appendChild(option);
+  });
+}
+
+function snapshotValues() {
+  return Object.fromEntries(Object.entries(values).map(([key, value]) => [key, value]));
+}
+
+document.getElementById('export-config').addEventListener('click', () => {
+  downloadJson('nousresearch_crt_config.json', currentConfig());
+  showStatus('Config exported.');
+});
+
+document.getElementById('queue-render').addEventListener('click', queueRender);
+
+document.getElementById('save-preset').addEventListener('click', () => {
+  const name = prompt('Preset name');
+  if (!name) return;
+  const data = getStoredPresets();
+  data[name.trim()] = snapshotValues();
+  setStoredPresets(data);
+  refreshSavedPresets();
+  savedPresetsEl.value = name.trim();
+  showStatus('Preset saved.');
+});
+
+savedPresetsEl.addEventListener('change', () => {
+  const name = savedPresetsEl.value;
+  if (!name) return;
+  const data = getStoredPresets();
+  if (data[name]) applyPreset(data[name]);
+});
+
+document.getElementById('delete-preset').addEventListener('click', () => {
+  const name = savedPresetsEl.value;
+  if (!name) return;
+  const data = getStoredPresets();
+  delete data[name];
+  setStoredPresets(data);
+  refreshSavedPresets();
+  showStatus('Preset deleted.');
+});
+
+buildControls();
+refreshSavedPresets();
+
+showStatus('Loading SVG...', true);
+loadSVG('./nousresearch.svg')
+  .then(svgData => {
+    baseSvg = svgData;
+    const logoData = sampleSVGParticles(baseSvg, values.particleDensity, Math.round(values.layerCount), values.depthRange);
+    logoUniforms = makeUniforms('logo');
+    const logoMaterial = new THREE.ShaderMaterial({
+      vertexShader: dustVertexShader,
+      fragmentShader: dustFragmentShader,
+      uniforms: logoUniforms,
+      transparent: true,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+    });
+    logoPoints = new THREE.Points(makeGeometry(logoData), logoMaterial);
+    scene.add(logoPoints);
+    applyLiveValues();
+    startTimeline();
+    renderFrame();
+    showStatus(`${logoData.count.toLocaleString()} logo particles loaded`);
+  })
+  .catch(err => {
+    console.error(err);
+    showStatus('Unable to load ./nousresearch.svg', true);
+  });
+</script>
+</body>
+</html>
